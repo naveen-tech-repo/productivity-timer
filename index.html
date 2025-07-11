@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>📘 Productivity Timer</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body {
+      background: #121212;
+      color: white;
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+
+   #timer {
+  font-size: 10vw;
+  font-weight: bold;
+  margin: 0;
+}
+
+    .inputs, .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin: 20px;
+    }
+
+    input[type="text"], input[type="number"] {
+      font-size: 1.2vw;
+      padding: 10px;
+      width: 30vw;
+      border-radius: 10px;
+      border: none;
+      outline: none;
+    }
+
+    button {
+      font-size: 1vw;
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      background-color: #1f1f1f;
+      color: white;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background-color: #333333;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background-color: #1a1a1a;
+      margin-top: 10px;
+    }
+
+    th, td {
+      border: 1px solid #333;
+      padding: 10px;
+      font-size: 0.9vw;
+      text-align: center;
+    }
+
+    th {
+      background-color: #222;
+    }
+
+    .log-container {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      flex-wrap: wrap;
+      margin: 30px auto;
+      width: 95%;
+    }
+
+    .log-box {
+      flex: 1 1 45%;
+      min-width: 300px;
+    }
+
+    .log-box h3 {
+      font-size: 1.2vw;
+      margin-bottom: 10px;
+    }
+
+    #support {
+      margin-top: 30px;
+    }
+
+    #qr-code {
+      width: 200px;
+      border-radius: 10px;
+      margin-top: 10px;
+      border: 2px solid white;
+    }
+
+    .tree {
+      background-image: url('https://emojicdn.elk.sh/🌳');
+      background-size: contain;
+      background-repeat: no-repeat;
+      width: 40px;
+      height: 0in;
+      transform-origin: bottom;
+      transition: height linear;
+    }
+
+   #treeRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 5vw;
+  gap: 20px;
+}
+    #grownTrees, #treeAnimation {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  min-height: 100px;
+  min-width: 50px;
+}
+
+    audio {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<div id="treeRow">
+  <div id="grownTrees"></div>
+  <div id="timer">50:00</div>
+  <div id="treeAnimation"></div>
+</div>
+
+  <div class="inputs">
+    <input type="text" id="sessionTag" placeholder="Enter session tag (e.g., DSA)" />
+    <button onclick="startTimer()" style="background-color: lightgreen; color: black;">Start Session</button>
+    <input type="number" id="manualDuration" placeholder="Manual Duration (min)" min="1" />
+  </div>
+
+  <div class="controls">
+    <button onclick="start50MinSession()">🎯 Start 50-Min Session</button>
+    <button onclick="start25MinSession()">🎯 Start 25-Min Session</button>
+    <button onclick="fullscreen()">Fullscreen</button>
+    <button onclick="takeBreak(5)">5 Min Break</button>
+    <button onclick="takeBreak(10)">10 Min Break</button>
+    <button onclick="takeBreak(30)">30 Min Break</button>
+    <button onclick="endBreak()">✅ End Break Manually</button>
+    <button onclick="downloadLogs()">🗕️ Download Excel Log</button>
+  </div>
+
+  
+  <!-- 🔁 Logs -->
+  <div class="log-container">
+    <div class="log-box">
+      <h3>☕ Break Log</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Start</th>
+            <th>End</th>
+            <th>Duration</th>
+            <th>Type</th>
+          </tr>
+        </thead>
+        <tbody id="breakLog"></tbody>
+      </table>
+    </div>
+    <div class="log-box">
+      <h3>📘 Session Log</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Tag</th>
+            <th>Start</th>
+            <th>End</th>
+            <th>Studied</th>
+            <th>Completed</th>
+          </tr>
+        </thead>
+        <tbody id="sessionLog"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="support">
+    <h3>🙏 Support Me</h3>
+    <img id="qr-code" src="scanner.jpeg" alt="Support Me QR Code" />
+    <p>UPI ID: <strong>nrohilla245-3@oksbi</strong></p>
+  </div>
+
+  <audio id="sessionSound" src="https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3" preload="auto"></audio>
+
+  <script>
+    let interval = null;
+    let remaining = 50 * 60;
+    let defaultMainTime = 50 * 60;
+    let sessionStartTime = null;
+    let breakStartTime = null;
+    let onBreak = false;
+    let sessionCount = 0;
+    let breakCount = 0;
+    let lastSessionCompleted = true;
+    let lastBreakReason = "";
+    let currentSessionTag = "";
+
+    const sessionLogTbody = document.getElementById("sessionLog");
+    const breakLogTbody = document.getElementById("breakLog");
+    const sessionSound = document.getElementById("sessionSound");
+
+    function formatTime(date) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    function updateTimerDisplay() {
+      const min = String(Math.floor(remaining / 60)).padStart(2, '0');
+      const sec = String(remaining % 60).padStart(2, '0');
+      document.getElementById('timer').textContent = `${min}:${sec}`;
+    }
+
+    function showGrowingTree(durationMinutes) {
+      const animContainer = document.getElementById("treeAnimation");
+      animContainer.innerHTML = '';
+      const tree = document.createElement("div");
+      tree.classList.add("tree");
+
+      let targetHeight = "2in";
+      if (durationMinutes <= 25) targetHeight = "0.5in";
+      else if (durationMinutes <= 50) targetHeight = "1in";
+
+      tree.style.transitionDuration = (durationMinutes * 60) + 's';
+      animContainer.appendChild(tree);
+
+      setTimeout(() => {
+        tree.style.height = targetHeight;
+      }, 100);
+    }
+
+    function addTreeToGrownArea(durationMinutes, interrupted = false, reason = "") {
+      const container = document.getElementById('grownTrees');
+      const tree = document.createElement('div');
+      tree.classList.add('tree');
+
+      if (durationMinutes <= 25) tree.style.height = "0.5in";
+      else if (durationMinutes <= 50) tree.style.height = "1in";
+      else tree.style.height = "2in";
+
+      if (interrupted) {
+        tree.style.filter = "grayscale(100%)";
+        tree.title = "Cut due to: " + reason;
+      } else {
+        tree.title = "Completed " + durationMinutes + " min";
+      }
+
+      container.appendChild(tree);
+    }
+
+    function startTimer() {
+      const tagInput = document.getElementById('sessionTag').value.trim();
+      const manualDuration = parseInt(document.getElementById('manualDuration').value);
+      if (!onBreak && !tagInput) return alert("⚠️ Please enter a session tag first.");
+      if (!onBreak && manualDuration > 0) {
+        remaining = defaultMainTime = manualDuration * 60;
+      }
+
+      if (interval) return;
+
+      if (!onBreak && !sessionStartTime) {
+        sessionStartTime = new Date();
+        currentSessionTag = tagInput;
+        lastSessionCompleted = true;
+        showGrowingTree(defaultMainTime / 60);
+      }
+
+      interval = setInterval(() => {
+        if (remaining > 0) {
+          remaining--;
+          updateTimerDisplay();
+        } else {
+          clearInterval(interval);
+          interval = null;
+          if (onBreak) {
+            endBreak(true);
+          } else {
+            completeSession();
+          }
+        }
+      }, 1000);
+    }
+
+    function completeSession() {
+      const now = new Date();
+      const studiedMin = Math.floor((now - sessionStartTime) / 60000);
+      sessionCount++;
+      addTreeToGrownArea(studiedMin, !lastSessionCompleted, lastBreakReason);
+      document.getElementById("treeAnimation").innerHTML = '';
+
+      const row = sessionLogTbody.insertRow(0);
+      row.innerHTML = `
+        <td>${sessionCount}</td>
+        <td>${currentSessionTag}</td>
+        <td>${formatTime(sessionStartTime)}</td>
+        <td>${formatTime(now)}</td>
+        <td>${studiedMin} min</td>
+        <td>${lastSessionCompleted ? 'Yes' : 'No - ' + lastBreakReason}</td>
+      `;
+      resetSession();
+      playSound("🎉 Session complete!");
+    }
+
+    function resetSession() {
+      sessionStartTime = null;
+      currentSessionTag = "";
+      document.getElementById('sessionTag').value = "";
+      remaining = defaultMainTime = 50 * 60;
+      updateTimerDisplay();
+    }
+
+    function takeBreak(minutes) {
+      if (!onBreak && sessionStartTime) {
+        const reason = prompt("🔁 Why are you breaking the session?");
+        if (!reason) return;
+        alert("⚠️ Session interrupted! Reason: " + reason);
+        lastSessionCompleted = false;
+        lastBreakReason = reason;
+        completeSession();
+      }
+      clearInterval(interval);
+      interval = null;
+      remaining = defaultMainTime = minutes * 60;
+      updateTimerDisplay();
+      onBreak = true;
+      breakStartTime = new Date();
+      startTimer();
+    }
+
+    function endBreak(auto = false) {
+      if (!breakStartTime) return;
+      clearInterval(interval);
+      interval = null;
+      const now = new Date();
+      breakCount++;
+      const durationSec = Math.floor((now - breakStartTime) / 1000);
+      const minutes = Math.floor(durationSec / 60);
+      const seconds = durationSec % 60;
+
+      const row = breakLogTbody.insertRow(0);
+      row.innerHTML = `
+        <td>${breakCount}</td>
+        <td>${formatTime(breakStartTime)}</td>
+        <td>${formatTime(now)}</td>
+        <td>${minutes}m ${seconds}s</td>
+        <td>${auto ? 'Auto' : 'Manual'}</td>
+      `;
+      breakStartTime = null;
+      onBreak = false;
+      playSound("☕ Break complete!");
+    }
+
+    function start50MinSession() {
+      endBreak();
+      clearInterval(interval);
+      interval = null;
+      remaining = defaultMainTime = 50 * 60;
+      sessionStartTime = new Date();
+      currentSessionTag = document.getElementById('sessionTag').value.trim();
+      lastSessionCompleted = true;
+      showGrowingTree(50);
+      updateTimerDisplay();
+      startTimer();
+    }
+
+    function start25MinSession() {
+      endBreak();
+      clearInterval(interval);
+      interval = null;
+      remaining = defaultMainTime = 25 * 60;
+      sessionStartTime = new Date();
+      currentSessionTag = document.getElementById('sessionTag').value.trim();
+      lastSessionCompleted = true;
+      showGrowingTree(25);
+      updateTimerDisplay();
+      startTimer();
+    }
+
+    function playSound(message) {
+      sessionSound.play().catch(() => {});
+      setTimeout(() => alert(message), 200);
+    }
+
+    function fullscreen() {
+      const elem = document.documentElement;
+      if (elem.requestFullscreen) elem.requestFullscreen();
+    }
+
+    function downloadLogs() {
+      const logs = [];
+      document.querySelectorAll("#sessionLog tr").forEach(row => {
+        const cells = row.querySelectorAll("td");
+        if (cells.length) {
+          logs.push({
+            "#": cells[0].innerText,
+            Tag: cells[1].innerText,
+            Started: cells[2].innerText,
+            Ended: cells[3].innerText,
+            Studied: cells[4].innerText,
+            Completed: cells[5].innerText
+          });
+        }
+      });
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(logs);
+      XLSX.utils.book_append_sheet(wb, ws, "Logs");
+      const now = new Date();
+      const fileName = `${now.getDate()}-${now.getMonth() + 1}-${now.getFullYear()}-logs.xlsx`;
+      XLSX.writeFile(wb, fileName);
+    }
+
+    updateTimerDisplay();
+  </script>
+</body>
+</html>
