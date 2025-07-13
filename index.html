@@ -151,6 +151,8 @@
     <button onclick="takeBreak(5)">5 Min Break</button>
     <button onclick="takeBreak(10)">10 Min Break</button>
     <button onclick="takeBreak(30)">30 Min Break</button>
+    <button onclick="terminateSession()">🛑 Terminate Session</button>
+
     <button onclick="endBreak()">✅ End Break Manually</button>
     <button onclick="downloadLogs()">🗕️ Download Excel Log</button>
   </div>
@@ -221,10 +223,13 @@
     }
 
     function updateTimerDisplay() {
-      const min = String(Math.floor(remaining / 60)).padStart(2, '0');
-      const sec = String(remaining % 60).padStart(2, '0');
-      document.getElementById('timer').textContent = `${min}:${sec}`;
-    }
+  const min = String(Math.floor(remaining / 60)).padStart(2, '0');
+  const sec = String(remaining % 60).padStart(2, '0');
+  const timeStr = `${min}:${sec}`;
+  document.getElementById('timer').textContent = timeStr;
+  document.title = `⏳ ${timeStr} - Productivity Timer`;
+}
+
 
     function showGrowingTree(durationMinutes) {
       const animContainer = document.getElementById("treeAnimation");
@@ -400,6 +405,26 @@
       const elem = document.documentElement;
       if (elem.requestFullscreen) elem.requestFullscreen();
     }
+function terminateSession() {
+  if (!sessionStartTime || onBreak) return alert("❌ No active session to terminate.");
+
+  const reason = prompt("🛑 Why are you terminating the session?");
+  if (!reason) return;
+
+  alert("⚠️ Session terminated! Reason: " + reason);
+
+  clearInterval(interval);
+  interval = null;
+
+  lastSessionCompleted = false;
+  lastBreakReason = reason;
+
+  completeSession(0, true); // Force 0 min + signal it's a termination
+
+  remaining = 0;
+  updateTimerDisplay();
+}
+
 
     function downloadLogs() {
       const logs = [];
