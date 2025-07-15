@@ -347,28 +347,37 @@
       startTimer();
     }
 
-    function endBreak(auto = false) {
-      if (!breakStartTime) return;
-      clearInterval(interval);
-      interval = null;
-      const now = new Date();
-      breakCount++;
-      const durationSec = Math.floor((now - breakStartTime) / 1000);
-      const minutes = Math.floor(durationSec / 60);
-      const seconds = durationSec % 60;
+   function endBreak(auto = false) {
+  if (!breakStartTime) return;
 
-      const row = breakLogTbody.insertRow(0);
-      row.innerHTML = `
-        <td>${breakCount}</td>
-        <td>${formatTime(breakStartTime)}</td>
-        <td>${formatTime(now)}</td>
-        <td>${minutes}m ${seconds}s</td>
-        <td>${auto ? 'Auto' : 'Manual'}</td>
-      `;
-      breakStartTime = null;
-      onBreak = false;
-      playSound("☕ Break complete!");
-    }
+  clearInterval(interval);
+  interval = null;
+
+  const now = new Date();
+  breakCount++;
+
+  const durationSec = Math.floor((now - breakStartTime) / 1000);
+  const minutes = Math.floor(durationSec / 60);
+  const seconds = durationSec % 60;
+
+  const row = breakLogTbody.insertRow(0);
+  row.innerHTML = `
+    <td>${breakCount}</td>
+    <td>${formatTime(breakStartTime)}</td>
+    <td>${formatTime(now)}</td>
+    <td>${minutes}m ${seconds}s</td>
+    <td>${auto ? 'Auto' : 'Manual'}</td>
+  `;
+
+  breakStartTime = null;
+  onBreak = false;
+
+  // 🔁 Reset timer to default (50 mins)
+  remaining = defaultMainTime = 50 * 60;
+  updateTimerDisplay();
+
+  playSound("☕ Break complete!");
+}
 
     function start50MinSession() {
       endBreak();
